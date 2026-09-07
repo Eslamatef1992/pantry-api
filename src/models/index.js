@@ -8,6 +8,7 @@ const Address = require('./Address');
 const Order = require('./Order');
 const OrderItem = require('./OrderItem');
 const PaymentSetting = require('./PaymentSetting');
+const Banner = require('./Banner');
 
 // Category <-> Product
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -47,4 +48,5 @@ module.exports = {
   Order,
   OrderItem,
   PaymentSetting,
+  Banner,
 };

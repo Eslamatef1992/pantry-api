@@ -17,6 +17,8 @@ const Product = sequelize.define('Product', {
   images: { type: DataTypes.JSON, allowNull: true },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
   isFeatured: { type: DataTypes.BOOLEAN, defaultValue: false },
+  isBestSeller: { type: DataTypes.BOOLEAN, defaultValue: false },
+  isNewArrival: { type: DataTypes.BOOLEAN, defaultValue: false },
   categoryId: { type: DataTypes.INTEGER, allowNull: false },
 });
 
