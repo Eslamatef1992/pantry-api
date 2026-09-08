@@ -83,6 +83,100 @@ const createOrder = async (req, res, next) => {
   }
 };
 
+// Guest checkout: no account required. The client sends the items directly
+// (rather than relying on a server-side Cart, which is tied to a userId) and
+// contact + delivery details entered at checkout time. Prices are always
+// re-read from the Product table here, never trusted from the client.
+const createGuestOrder = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { items, guestName, guestPhone, guestEmail, address, paymentMethod, notes } = req.body;
+
+    if (!guestName || !guestPhone) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Name and phone are required' });
+    }
+    if (!Array.isArray(items) || !items.length) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Cart is empty' });
+    }
+
+    const setting = await PaymentSetting.findOne({ where: { method: paymentMethod } });
+    if (!setting || !setting.isEnabled) {
+      await t.rollback();
+      return res.status(400).json({ message: `Payment method '${paymentMethod}' is not enabled` });
+    }
+
+    const productIds = items.map((i) => i.productId);
+    const products = await Product.findAll({ where: { id: productIds }, transaction: t });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    let subtotal = 0;
+    const lineItems = [];
+    for (const { productId, quantity } of items) {
+      const product = productMap.get(productId);
+      const qty = Number(quantity) || 0;
+      if (!product || !product.isActive || qty <= 0) {
+        await t.rollback();
+        return res.status(400).json({ message: 'One or more items are no longer available' });
+      }
+      if (product.stock !== null && product.stock < qty) {
+        await t.rollback();
+        return res.status(400).json({ message: `Not enough stock for ${product.nameEn}` });
+      }
+      subtotal += Number(product.price) * qty;
+      lineItems.push({ product, quantity: qty });
+    }
+
+    const deliveryFee = DELIVERY_FEE;
+    const total = subtotal + deliveryFee;
+
+    const order = await Order.create(
+      {
+        orderNumber: generateOrderNumber(),
+        userId: null,
+        guestName,
+        guestPhone,
+        guestEmail: guestEmail || null,
+        addressId: null,
+        paymentMethod,
+        paymentStatus: 'pending',
+        subtotal,
+        deliveryFee,
+        total,
+        shippingSnapshot: address ? { fullName: guestName, phone: guestPhone, ...address } : null,
+        notes,
+      },
+      { transaction: t }
+    );
+
+    for (const { product, quantity } of lineItems) {
+      await OrderItem.create(
+        {
+          orderId: order.id,
+          productId: product.id,
+          nameEn: product.nameEn,
+          nameAr: product.nameAr,
+          price: product.price,
+          quantity,
+        },
+        { transaction: t }
+      );
+      if (product.stock !== null) {
+        await product.decrement('stock', { by: quantity, transaction: t });
+      }
+    }
+
+    await t.commit();
+
+    const full = await Order.findByPk(order.id, { include: [{ model: OrderItem, as: 'items' }] });
+    res.status(201).json(full);
+  } catch (err) {
+    await t.rollback();
+    next(err);
+  }
+};
+
 const myOrders = async (req, res, next) => {
   try {
     const orders = await Order.findAll({
@@ -143,4 +237,11 @@ const updateOrderStatus = async (req, res, next) => {
   }
 };
 
-module.exports = { createOrder, myOrders, getMyOrder, listAllOrders, updateOrderStatus };
+module.exports = {
+  createOrder,
+  createGuestOrder,
+  myOrders,
+  getMyOrder,
+  listAllOrders,
+  updateOrderStatus,
+};

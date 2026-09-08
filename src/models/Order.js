@@ -4,7 +4,10 @@ const sequelize = require('../config/db');
 const Order = sequelize.define('Order', {
   id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
   orderNumber: { type: DataTypes.STRING, allowNull: false, unique: true },
-  userId: { type: DataTypes.INTEGER, allowNull: false },
+  userId: { type: DataTypes.INTEGER, allowNull: true },
+  guestName: { type: DataTypes.STRING, allowNull: true },
+  guestPhone: { type: DataTypes.STRING, allowNull: true },
+  guestEmail: { type: DataTypes.STRING, allowNull: true },
   addressId: { type: DataTypes.INTEGER, allowNull: true },
   status: {
     type: DataTypes.ENUM('pending', 'confirmed', 'processing', 'out_for_delivery', 'delivered', 'cancelled'),

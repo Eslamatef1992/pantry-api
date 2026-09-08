@@ -1,6 +1,7 @@
 const express = require('express');
 const {
   createOrder,
+  createGuestOrder,
   myOrders,
   getMyOrder,
   listAllOrders,
@@ -9,6 +10,9 @@ const {
 const { protect, adminOnly } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Guest checkout - no account required
+router.post('/guest', createGuestOrder);
 
 router.use(protect);
 router.post('/', createOrder);
