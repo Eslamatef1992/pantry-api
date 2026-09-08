@@ -35,7 +35,7 @@ const start = async () => {
   try {
     await sequelize.authenticate();
     console.log('MySQL connection established.');
-    await sequelize.sync({ alter: true }); // TODO: switch to real migrations before this handles real customer data at scale
+    await sequelize.sync(); // TODO: switch to real migrations before this handles real customer data at scale
     app.listen(PORT, () => console.log(`Pantry (makanifoods) API running on port ${PORT}`));
   } catch (err) {
     console.error('Unable to start server:', err.message);
