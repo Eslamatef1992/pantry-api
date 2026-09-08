@@ -128,6 +128,30 @@ const run = async () => {
       categoryId: snacks.id,
       isNewArrival: true,
     },
+    {
+      nameEn: 'Breakfast Bundle',
+      nameAr: 'باقة الفطور',
+      descriptionEn: 'Arabic coffee, honey, and mixed nuts together at a special bundle price.',
+      descriptionAr: 'قهوة عربية وعسل ومكسرات مشكلة معاً بسعر مميز للباقة.',
+      price: 11.5,
+      compareAtPrice: 13.4,
+      stock: 30,
+      unit: 'bundle',
+      categoryId: staples.id,
+      isBundle: true,
+    },
+    {
+      nameEn: 'Snack Lovers Bundle',
+      nameAr: 'باقة محبي الوجبات الخفيفة',
+      descriptionEn: 'Mixed nuts, dark chocolate, and sparkling water bundled together.',
+      descriptionAr: 'مكسرات مشكلة وشوكولاتة داكنة ومياه غازية في باقة واحدة.',
+      price: 7.9,
+      compareAtPrice: 9.0,
+      stock: 30,
+      unit: 'bundle',
+      categoryId: snacks.id,
+      isBundle: true,
+    },
   ];
   for (const p of sampleProducts) {
     const slug = p.nameEn.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');

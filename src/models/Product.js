@@ -19,6 +19,7 @@ const Product = sequelize.define('Product', {
   isFeatured: { type: DataTypes.BOOLEAN, defaultValue: false },
   isBestSeller: { type: DataTypes.BOOLEAN, defaultValue: false },
   isNewArrival: { type: DataTypes.BOOLEAN, defaultValue: false },
+  isBundle: { type: DataTypes.BOOLEAN, defaultValue: false },
   categoryId: { type: DataTypes.INTEGER, allowNull: false },
 });
 
