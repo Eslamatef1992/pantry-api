@@ -1,4 +1,4 @@
-const { Category } = require('../models');
+const { Category, Product } = require('../models');
 
 const slugify = (s) =>
   s.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -6,8 +6,20 @@ const slugify = (s) =>
 const listCategories = async (req, res, next) => {
   try {
     const where = req.query.all === 'true' ? {} : { isActive: true };
-    const categories = await Category.findAll({ where, order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
-    res.json(categories);
+    const categories = await Category.findAll({
+      where,
+      order: [['sortOrder', 'ASC'], ['id', 'ASC']],
+      include: req.query.withCounts === 'true' ? [{ model: Product, as: 'products', attributes: ['id'] }] : [],
+    });
+    const payload = categories.map((c) => {
+      const json = c.toJSON();
+      if (json.products) {
+        json.productCount = json.products.length;
+        delete json.products;
+      }
+      return json;
+    });
+    res.json(payload);
   } catch (err) {
     next(err);
   }

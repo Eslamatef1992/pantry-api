@@ -21,6 +21,7 @@ const Product = sequelize.define('Product', {
   isNewArrival: { type: DataTypes.BOOLEAN, defaultValue: false },
   isBundle: { type: DataTypes.BOOLEAN, defaultValue: false },
   categoryId: { type: DataTypes.INTEGER, allowNull: false },
+  brandId: { type: DataTypes.INTEGER, allowNull: true },
 });
 
 module.exports = Product;

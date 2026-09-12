@@ -1,12 +1,12 @@
 const { Op } = require('sequelize');
-const { Product, Category } = require('../models');
+const { Product, Category, Brand } = require('../models');
 
 const slugify = (s) =>
   s.toString().toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
 const listProducts = async (req, res, next) => {
   try {
-    const { category, search, featured, bestSeller, newArrival, bundle, onOffer, page = 1, limit = 20, all } = req.query;
+    const { category, brand, search, featured, bestSeller, newArrival, bundle, onOffer, page = 1, limit = 20, all } = req.query;
     const where = {};
     if (all !== 'true') where.isActive = true;
     if (featured === 'true') where.isFeatured = true;
@@ -22,9 +22,16 @@ const listProducts = async (req, res, next) => {
         { nameAr: { [Op.like]: `%${search}%` } },
       ];
     }
-    const include = [{ model: Category, as: 'category', attributes: ['id', 'nameEn', 'nameAr', 'slug'] }];
+    const include = [
+      { model: Category, as: 'category', attributes: ['id', 'nameEn', 'nameAr', 'slug'] },
+      { model: Brand, as: 'brand', attributes: ['id', 'nameEn', 'nameAr', 'slug'] },
+    ];
     if (category) {
       include[0].where = { slug: category };
+    }
+    if (brand) {
+      include[1].where = { slug: brand };
+      include[1].required = true;
     }
     const offset = (Number(page) - 1) * Number(limit);
     const { rows, count } = await Product.findAndCountAll({
@@ -45,7 +52,10 @@ const getProduct = async (req, res, next) => {
   try {
     const product = await Product.findOne({
       where: { slug: req.params.slug },
-      include: [{ model: Category, as: 'category' }],
+      include: [
+        { model: Category, as: 'category' },
+        { model: Brand, as: 'brand' },
+      ],
     });
     if (!product) return res.status(404).json({ message: 'Product not found' });
     res.json(product);
