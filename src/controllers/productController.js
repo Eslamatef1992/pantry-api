@@ -6,7 +6,21 @@ const slugify = (s) =>
 
 const listProducts = async (req, res, next) => {
   try {
-    const { category, brand, search, featured, bestSeller, newArrival, bundle, onOffer, page = 1, limit = 20, all } = req.query;
+    const {
+      category,
+      brand,
+      search,
+      featured,
+      bestSeller,
+      newArrival,
+      bundle,
+      onOffer,
+      minPrice,
+      maxPrice,
+      page = 1,
+      limit = 20,
+      all,
+    } = req.query;
     const where = {};
     if (all !== 'true') where.isActive = true;
     if (featured === 'true') where.isFeatured = true;
@@ -15,6 +29,11 @@ const listProducts = async (req, res, next) => {
     if (bundle === 'true') where.isBundle = true;
     if (onOffer === 'true') {
       where.compareAtPrice = { [Op.not]: null, [Op.gt]: { [Op.col]: 'price' } };
+    }
+    if (minPrice !== undefined || maxPrice !== undefined) {
+      where.price = {};
+      if (minPrice !== undefined && minPrice !== '') where.price[Op.gte] = Number(minPrice);
+      if (maxPrice !== undefined && maxPrice !== '') where.price[Op.lte] = Number(maxPrice);
     }
     if (search) {
       where[Op.or] = [
