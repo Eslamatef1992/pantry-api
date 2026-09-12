@@ -181,7 +181,13 @@ const myOrders = async (req, res, next) => {
   try {
     const orders = await Order.findAll({
       where: { userId: req.user.id },
-      include: [{ model: OrderItem, as: 'items' }],
+      include: [
+        {
+          model: OrderItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'slug', 'image', 'images'] }],
+        },
+      ],
       order: [['createdAt', 'DESC']],
     });
     res.json(orders);
@@ -194,7 +200,14 @@ const getMyOrder = async (req, res, next) => {
   try {
     const order = await Order.findOne({
       where: { id: req.params.id, userId: req.user.id },
-      include: [{ model: OrderItem, as: 'items' }],
+      include: [
+        {
+          model: OrderItem,
+          as: 'items',
+          include: [{ model: Product, as: 'product', attributes: ['id', 'slug', 'image', 'images'] }],
+        },
+        { model: Address, as: 'address' },
+      ],
     });
     if (!order) return res.status(404).json({ message: 'Order not found' });
     res.json(order);
