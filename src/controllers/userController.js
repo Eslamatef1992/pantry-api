@@ -64,6 +64,26 @@ const setCustomerActive = async (req, res, next) => {
   }
 };
 
+// Admin: edit a customer's own contact details (name/email/phone).
+const updateCustomer = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ where: { id: req.params.id, role: 'customer' } });
+    if (!user) return res.status(404).json({ message: 'Customer not found' });
+    const { name, email, phone } = req.body;
+    if (!name || !email) {
+      return res.status(400).json({ message: 'Name and email are required' });
+    }
+    if (email !== user.email) {
+      const existing = await User.findOne({ where: { email } });
+      if (existing) return res.status(400).json({ message: 'Email already registered' });
+    }
+    await user.update({ name, email, phone: phone !== undefined ? phone : user.phone });
+    res.json(publicAdmin(user));
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Super admin: list all admin accounts.
 const listAdmins = async (req, res, next) => {
   try {
@@ -169,6 +189,7 @@ const deleteAdmin = async (req, res, next) => {
 module.exports = {
   listCustomers,
   setCustomerActive,
+  updateCustomer,
   listAdmins,
   createAdmin,
   updateAdmin,

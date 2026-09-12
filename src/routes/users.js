@@ -2,6 +2,7 @@ const express = require('express');
 const {
   listCustomers,
   setCustomerActive,
+  updateCustomer,
   listAdmins,
   createAdmin,
   updateAdmin,
@@ -13,6 +14,7 @@ const router = express.Router();
 
 // Users module (#37): any admin can view registered customers.
 router.get('/customers', protect, adminOnly, listCustomers);
+router.put('/customers/:id', protect, adminOnly, updateCustomer);
 router.put('/customers/:id/active', protect, adminOnly, setCustomerActive);
 
 // Admins module (#38): restricted to super_admin.
