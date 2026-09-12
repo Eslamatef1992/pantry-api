@@ -39,6 +39,7 @@ const listProducts = async (req, res, next) => {
       where[Op.or] = [
         { nameEn: { [Op.like]: `%${search}%` } },
         { nameAr: { [Op.like]: `%${search}%` } },
+        { sku: { [Op.like]: `%${search}%` } },
       ];
     }
     const include = [
