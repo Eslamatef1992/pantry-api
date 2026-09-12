@@ -13,6 +13,7 @@ const Banner = require('./Banner');
 const StaticPage = require('./StaticPage');
 const Wishlist = require('./Wishlist');
 const SiteSetting = require('./SiteSetting');
+const ContactMessage = require('./ContactMessage');
 
 // Category <-> Product
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
@@ -66,4 +67,5 @@ module.exports = {
   StaticPage,
   Wishlist,
   SiteSetting,
+  ContactMessage,
 };

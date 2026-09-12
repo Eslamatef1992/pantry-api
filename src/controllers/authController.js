@@ -8,6 +8,7 @@ const publicUser = (user) => ({
   email: user.email,
   phone: user.phone,
   role: user.role,
+  adminRole: user.adminRole,
 });
 
 const register = async (req, res, next) => {

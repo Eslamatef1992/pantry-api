@@ -8,6 +8,9 @@ const User = sequelize.define('User', {
   phone: { type: DataTypes.STRING, allowNull: true },
   password: { type: DataTypes.STRING, allowNull: false },
   role: { type: DataTypes.ENUM('customer', 'admin'), defaultValue: 'customer' },
+  // Only meaningful when role='admin'. super_admin can manage other admins and
+  // store-wide Rules; staff has access to day-to-day modules only.
+  adminRole: { type: DataTypes.ENUM('super_admin', 'staff'), allowNull: true, defaultValue: null },
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
 });
 

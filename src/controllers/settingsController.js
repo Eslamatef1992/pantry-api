@@ -50,11 +50,39 @@ const getSiteSettings = async (req, res, next) => {
   }
 };
 
+// Admin (any role): store contact info shown in the storefront footer / contact page.
 const updateSiteSettings = async (req, res, next) => {
   try {
     const [settings] = await SiteSetting.findOrCreate({ where: { id: 1 }, defaults: { id: 1 } });
     const { phone1, phone2, email } = req.body;
-    await settings.update({ phone1, phone2, email });
+    await settings.update({
+      phone1: phone1 !== undefined ? phone1 : settings.phone1,
+      phone2: phone2 !== undefined ? phone2 : settings.phone2,
+      email: email !== undefined ? email : settings.email,
+    });
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Super admin only: store-wide delivery/order Rules. Kept as a separate endpoint
+// (rather than folding into updateSiteSettings) so a non-super-admin calling the
+// contact-info endpoint can never smuggle in changes to these fields.
+const updateOrderRules = async (req, res, next) => {
+  try {
+    const [settings] = await SiteSetting.findOrCreate({ where: { id: 1 }, defaults: { id: 1 } });
+    const { minOrderAmount, deliveryFee, freeDeliveryThreshold } = req.body;
+    await settings.update({
+      minOrderAmount: minOrderAmount !== undefined ? Number(minOrderAmount) : settings.minOrderAmount,
+      deliveryFee: deliveryFee !== undefined ? Number(deliveryFee) : settings.deliveryFee,
+      freeDeliveryThreshold:
+        freeDeliveryThreshold !== undefined && freeDeliveryThreshold !== ''
+          ? Number(freeDeliveryThreshold)
+          : freeDeliveryThreshold === ''
+          ? null
+          : settings.freeDeliveryThreshold,
+    });
     res.json(settings);
   } catch (err) {
     next(err);
@@ -62,6 +90,7 @@ const updateSiteSettings = async (req, res, next) => {
 };
 
 module.exports = {
+  updateOrderRules,
   listPublicPaymentMethods,
   listPaymentSettings,
   updatePaymentSetting,

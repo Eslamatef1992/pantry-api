@@ -1,7 +1,25 @@
-const { sequelize, Order, OrderItem, Cart, CartItem, Product, Address, PaymentSetting } = require('../models');
+const { Op } = require('sequelize');
+const { sequelize, Order, OrderItem, Cart, CartItem, Product, Address, PaymentSetting, SiteSetting, User } = require('../models');
 const generateOrderNumber = require('../utils/orderNumber');
 
-const DELIVERY_FEE = 1.5; // KWD flat rate placeholder, adjust once business rules are set
+// Delivery fee, free-delivery threshold and minimum order amount are configurable
+// in Admin > Rules (SiteSetting singleton row). Falls back to sane defaults if the
+// settings row hasn't been created yet.
+const getOrderRules = async () => {
+  const settings = await SiteSetting.findOne({ where: { id: 1 } });
+  const minOrderAmount = settings ? Number(settings.minOrderAmount) || 0 : 0;
+  const flatDeliveryFee = settings ? Number(settings.deliveryFee) || 0 : 1.5;
+  const freeDeliveryThreshold =
+    settings && settings.freeDeliveryThreshold !== null && settings.freeDeliveryThreshold !== undefined
+      ? Number(settings.freeDeliveryThreshold)
+      : null;
+  return { minOrderAmount, flatDeliveryFee, freeDeliveryThreshold };
+};
+
+const computeDeliveryFee = (subtotal, rules) => {
+  if (rules.freeDeliveryThreshold !== null && subtotal >= rules.freeDeliveryThreshold) return 0;
+  return rules.flatDeliveryFee;
+};
 
 const createOrder = async (req, res, next) => {
   const t = await sequelize.transaction();
@@ -30,7 +48,15 @@ const createOrder = async (req, res, next) => {
     }
 
     const subtotal = cart.items.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
-    const deliveryFee = DELIVERY_FEE;
+    const rules = await getOrderRules();
+    if (rules.minOrderAmount > 0 && subtotal < rules.minOrderAmount) {
+      await t.rollback();
+      return res.status(400).json({
+        message: `Minimum order amount is ${rules.minOrderAmount.toFixed(3)} KWD`,
+        minOrderAmount: rules.minOrderAmount,
+      });
+    }
+    const deliveryFee = computeDeliveryFee(subtotal, rules);
     const total = subtotal + deliveryFee;
 
     const order = await Order.create(
@@ -128,7 +154,15 @@ const createGuestOrder = async (req, res, next) => {
       lineItems.push({ product, quantity: qty });
     }
 
-    const deliveryFee = DELIVERY_FEE;
+    const rules = await getOrderRules();
+    if (rules.minOrderAmount > 0 && subtotal < rules.minOrderAmount) {
+      await t.rollback();
+      return res.status(400).json({
+        message: `Minimum order amount is ${rules.minOrderAmount.toFixed(3)} KWD`,
+        minOrderAmount: rules.minOrderAmount,
+      });
+    }
+    const deliveryFee = computeDeliveryFee(subtotal, rules);
     const total = subtotal + deliveryFee;
 
     const order = await Order.create(
@@ -216,20 +250,56 @@ const getMyOrder = async (req, res, next) => {
   }
 };
 
-// Admin
+// Admin: list orders with status filter, guest/registered filter, and search
+// across order number, guest name/phone, and the linked account's name/email.
 const listAllOrders = async (req, res, next) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
-    const where = status ? { status } : {};
+    const { status, guestOnly, search, page = 1, limit = 20 } = req.query;
+    const where = {};
+    if (status) where.status = status;
+    if (guestOnly === 'true') where.userId = null;
+    if (guestOnly === 'false') where.userId = { [Op.not]: null };
+    if (search) {
+      where[Op.or] = [
+        { orderNumber: { [Op.like]: `%${search}%` } },
+        { guestName: { [Op.like]: `%${search}%` } },
+        { guestPhone: { [Op.like]: `%${search}%` } },
+        { '$user.name$': { [Op.like]: `%${search}%` } },
+        { '$user.email$': { [Op.like]: `%${search}%` } },
+      ];
+    }
     const offset = (Number(page) - 1) * Number(limit);
     const { rows, count } = await Order.findAndCountAll({
       where,
-      include: [{ model: OrderItem, as: 'items' }],
+      include: [
+        { model: OrderItem, as: 'items' },
+        { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
+      ],
       order: [['createdAt', 'DESC']],
       limit: Number(limit),
       offset,
+      subQuery: false,
+      distinct: true,
     });
     res.json({ orders: rows, total: count, page: Number(page), pages: Math.ceil(count / Number(limit)) });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Admin: single order by id, with full item/address/customer detail — used by
+// the order detail/print view instead of scanning the whole admin/all list.
+const getOrderByIdAdmin = async (req, res, next) => {
+  try {
+    const order = await Order.findByPk(req.params.id, {
+      include: [
+        { model: OrderItem, as: 'items' },
+        { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
+        { model: Address, as: 'address' },
+      ],
+    });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    res.json(order);
   } catch (err) {
     next(err);
   }
@@ -253,6 +323,7 @@ const updateOrderStatus = async (req, res, next) => {
 module.exports = {
   createOrder,
   createGuestOrder,
+  getOrderByIdAdmin,
   myOrders,
   getMyOrder,
   listAllOrders,

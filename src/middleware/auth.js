@@ -27,4 +27,15 @@ const adminOnly = (req, res, next) => {
   return res.status(403).json({ message: 'Admin access required' });
 };
 
-module.exports = { protect, adminOnly };
+// Restricts to admins whose adminRole is 'super_admin'. Use this for managing
+// other admin accounts and store-wide Rules (delivery fee, minimum order, etc).
+// Legacy admins created before adminRole existed (adminRole === null) are treated
+// as super_admin so no existing admin loses access after this migration.
+const superAdminOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'admin' && (req.user.adminRole === 'super_admin' || !req.user.adminRole)) {
+    return next();
+  }
+  return res.status(403).json({ message: 'Super admin access required' });
+};
+
+module.exports = { protect, adminOnly, superAdminOnly };
