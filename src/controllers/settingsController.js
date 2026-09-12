@@ -1,4 +1,4 @@
-const { PaymentSetting } = require('../models');
+const { PaymentSetting, SiteSetting } = require('../models');
 
 // Public: storefront checkout needs to know which methods are currently enabled.
 const listPublicPaymentMethods = async (req, res, next) => {
@@ -40,4 +40,31 @@ const updatePaymentSetting = async (req, res, next) => {
   }
 };
 
-module.exports = { listPublicPaymentMethods, listPaymentSettings, updatePaymentSetting };
+// Public: footer contact info (phone/email). Any blank field is simply omitted by the client.
+const getSiteSettings = async (req, res, next) => {
+  try {
+    const [settings] = await SiteSetting.findOrCreate({ where: { id: 1 }, defaults: { id: 1 } });
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateSiteSettings = async (req, res, next) => {
+  try {
+    const [settings] = await SiteSetting.findOrCreate({ where: { id: 1 }, defaults: { id: 1 } });
+    const { phone1, phone2, email } = req.body;
+    await settings.update({ phone1, phone2, email });
+    res.json(settings);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  listPublicPaymentMethods,
+  listPaymentSettings,
+  updatePaymentSetting,
+  getSiteSettings,
+  updateSiteSettings,
+};
