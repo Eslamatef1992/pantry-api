@@ -305,6 +305,131 @@ const getOrderByIdAdmin = async (req, res, next) => {
   }
 };
 
+// Super admin: create an order directly from the admin panel (phone/in-person
+// orders), for either an existing registered customer or a new guest. Skips
+// the storefront minimum-order-amount check and payment-method-enabled toggle,
+// since these are staff-entered orders rather than customer self-checkout.
+const createAdminOrder = async (req, res, next) => {
+  const t = await sequelize.transaction();
+  try {
+    const { customerType, userId, guestName, guestPhone, guestEmail, items, address, paymentMethod, notes } = req.body;
+
+    if (!['knet', 'sadad', 'cod'].includes(paymentMethod)) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Invalid payment method' });
+    }
+    if (!Array.isArray(items) || !items.length) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Add at least one product' });
+    }
+    if (!address || !address.fullName || !address.phone) {
+      await t.rollback();
+      return res.status(400).json({ message: 'Delivery address (name and phone) is required' });
+    }
+
+    let orderUserId = null;
+    let orderGuestName = null;
+    let orderGuestPhone = null;
+    let orderGuestEmail = null;
+
+    if (customerType === 'existing') {
+      if (!userId) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Select a customer' });
+      }
+      const customer = await User.findOne({ where: { id: userId, role: 'customer' }, transaction: t });
+      if (!customer) {
+        await t.rollback();
+        return res.status(404).json({ message: 'Customer not found' });
+      }
+      orderUserId = customer.id;
+    } else {
+      if (!guestName || !guestPhone) {
+        await t.rollback();
+        return res.status(400).json({ message: 'Customer name and phone are required' });
+      }
+      orderGuestName = guestName;
+      orderGuestPhone = guestPhone;
+      orderGuestEmail = guestEmail || null;
+    }
+
+    const productIds = items.map((i) => i.productId);
+    const products = await Product.findAll({ where: { id: productIds }, transaction: t });
+    const productMap = new Map(products.map((p) => [p.id, p]));
+
+    let subtotal = 0;
+    const lineItems = [];
+    for (const { productId, quantity } of items) {
+      const product = productMap.get(productId);
+      const qty = Number(quantity) || 0;
+      if (!product || qty <= 0) {
+        await t.rollback();
+        return res.status(400).json({ message: 'One or more items are invalid' });
+      }
+      if (product.stock !== null && product.stock < qty) {
+        await t.rollback();
+        return res.status(400).json({ message: `Not enough stock for ${product.nameEn}` });
+      }
+      subtotal += Number(product.price) * qty;
+      lineItems.push({ product, quantity: qty });
+    }
+
+    const rules = await getOrderRules();
+    const deliveryFee = computeDeliveryFee(subtotal, rules);
+    const total = subtotal + deliveryFee;
+
+    const order = await Order.create(
+      {
+        orderNumber: generateOrderNumber(),
+        userId: orderUserId,
+        guestName: orderGuestName,
+        guestPhone: orderGuestPhone,
+        guestEmail: orderGuestEmail,
+        addressId: null,
+        status: 'confirmed',
+        paymentMethod,
+        paymentStatus: 'pending',
+        subtotal,
+        deliveryFee,
+        total,
+        shippingSnapshot: address,
+        notes: notes || null,
+      },
+      { transaction: t }
+    );
+
+    for (const { product, quantity } of lineItems) {
+      await OrderItem.create(
+        {
+          orderId: order.id,
+          productId: product.id,
+          nameEn: product.nameEn,
+          nameAr: product.nameAr,
+          price: product.price,
+          quantity,
+        },
+        { transaction: t }
+      );
+      if (product.stock !== null) {
+        await product.decrement('stock', { by: quantity, transaction: t });
+      }
+    }
+
+    await t.commit();
+
+    const full = await Order.findByPk(order.id, {
+      include: [
+        { model: OrderItem, as: 'items' },
+        { model: User, as: 'user', attributes: ['id', 'name', 'email', 'phone'] },
+      ],
+    });
+    res.status(201).json(full);
+  } catch (err) {
+    await t.rollback();
+    next(err);
+  }
+};
+
 const updateOrderStatus = async (req, res, next) => {
   try {
     const order = await Order.findByPk(req.params.id);
@@ -323,6 +448,7 @@ const updateOrderStatus = async (req, res, next) => {
 module.exports = {
   createOrder,
   createGuestOrder,
+  createAdminOrder,
   getOrderByIdAdmin,
   myOrders,
   getMyOrder,
