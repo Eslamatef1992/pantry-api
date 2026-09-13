@@ -17,6 +17,7 @@ router.use('/wishlist', require('./wishlist'));
 router.use('/users', require('./users'));
 router.use('/contact', require('./contact'));
 router.use('/reports', require('./reports'));
+router.use('/seo', require('./seo'));
 
 router.get('/health', (req, res) => res.json({ status: 'ok', service: 'pantry-server' }));
 
